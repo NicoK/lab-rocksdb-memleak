@@ -88,6 +88,7 @@ dependencies {
     compile "org.apache.flink:flink-runtime-web_${scalaBinaryVersion}:${flinkVersion}"
     compile "org.apache.flink:flink-runtime_${scalaBinaryVersion}:${flinkVersion}"
     compile "org.apache.flink:flink-streaming-java_${scalaBinaryVersion}:${flinkVersion}"
+    compile "org.apache.flink:flink-statebackend-rocksdb_${scalaBinaryVersion}:${flinkVersion}"
 
     compile "log4j:log4j:${log4jVersion}"
     compile "org.slf4j:slf4j-log4j12:${slf4jVersion}"
