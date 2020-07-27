@@ -26,21 +26,27 @@ public class RocksDBMemLeak {
     ParameterTool parameters = ParameterTool.fromArgs(args);
 
     final boolean local = parameters.getBoolean("local", false);
+    final int movingCount = parameters.getInt("movingCount", 5_000_000);
+    final int checkpointInterval = parameters.getInt("checkpointInterval", 5_000);
 
     StreamExecutionEnvironment env = createConfiguredEnvironment(parameters, local);
 
     // Checkpointing Configuration
-    env.enableCheckpointing(5000);
-    //        env.getCheckpointConfig().enableExternalizedCheckpoints(
-    //                CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
-    env.getCheckpointConfig().setMinPauseBetweenCheckpoints(5000);
+    if (checkpointInterval > 0) {
+      env.enableCheckpointing(checkpointInterval);
+      env.getCheckpointConfig().setCheckpointTimeout(Time.hours(2).toMilliseconds());
+      env.getCheckpointConfig().setTolerableCheckpointFailureNumber(Integer.MAX_VALUE);
+      env.getCheckpointConfig().enableExternalizedCheckpoints(
+              CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
+      env.getCheckpointConfig().setMinPauseBetweenCheckpoints(checkpointInterval);
+    }
 
     DataStream<Tuple2<Integer, Double>> outstream =
         env.addSource(FakeSource.createSource())
             .name("FakeSource")
             .uid("FakeSource")
             .keyBy(SimpleMeasurement::getSensorId)
-            .map(new MovingCountAverage(5_000_000))
+            .map(new MovingCountAverage(movingCount))
             .name("MovingCountAverage")
             .uid("MovingCountAverage");
 
