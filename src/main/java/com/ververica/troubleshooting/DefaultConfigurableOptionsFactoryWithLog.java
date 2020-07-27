@@ -2,21 +2,27 @@ package com.ververica.troubleshooting;
 
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.contrib.streaming.state.DefaultConfigurableOptionsFactory;
 
 import org.rocksdb.DBOptions;
 import org.rocksdb.InfoLogLevel;
 
 import java.util.Collection;
-import java.util.Optional;
 
 import static org.apache.flink.configuration.ConfigOptions.key;
 
+@SuppressWarnings("unused")
 public class DefaultConfigurableOptionsFactoryWithLog extends DefaultConfigurableOptionsFactory {
 
  private static final long serialVersionUID = 1L;
-    private String dbLogDir = "/flink/log/";
+
+    public static final ConfigOption<String> LOG_DIR =
+            key("state.backend.rocksdb.log.dir")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("RocksDB log directory");
+
+    private String dbLogDir = "";
 
     @Override
     public DBOptions createDBOptions(DBOptions currentOptions,
@@ -37,7 +43,13 @@ public class DefaultConfigurableOptionsFactoryWithLog extends DefaultConfigurabl
                 '}';
     }
 
-    public void setDbLogDir(String dbLogDir) {
-        this.dbLogDir = dbLogDir;
+    @Override
+    public DefaultConfigurableOptionsFactoryWithLog configure(Configuration configuration) {
+        DefaultConfigurableOptionsFactoryWithLog optionsFactory =
+                (DefaultConfigurableOptionsFactoryWithLog) super.configure(configuration);
+
+        this.dbLogDir = configuration.getString(LOG_DIR);
+
+        return optionsFactory;
     }
 }
