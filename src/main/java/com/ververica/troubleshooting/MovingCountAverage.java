@@ -2,6 +2,8 @@ package com.ververica.troubleshooting;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
+
 import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
@@ -18,8 +20,9 @@ class MovingCountAverage extends RichMapFunction<SimpleMeasurement, Tuple2<Integ
   private ValueState<Integer> writePositionState;
   private MapState<Integer, SimpleMeasurement> lastN;
 
-  private Map<Integer, Integer> countPerKey = new HashMap<>();
-  private Map<Integer, Double> sumPerKey = new HashMap<>();
+  private final Map<Integer, Integer> countCachePerKey = new HashMap<>();
+  private final Map<Integer, Integer> writePositionCachePerKey = new HashMap<>();
+  private final Map<Integer, Double> sumPerKey = new HashMap<>();
 
   MovingCountAverage(int size) {
     this.size = size;
@@ -28,33 +31,36 @@ class MovingCountAverage extends RichMapFunction<SimpleMeasurement, Tuple2<Integ
   @Override
   public Tuple2<Integer, Double> map(SimpleMeasurement value) throws Exception {
     int key = value.getSensorId();
+    int writePos = writePositionCachePerKey.getOrDefault(key, -1);
+    int count = countCachePerKey.getOrDefault(key, -1);
     double sum = sumPerKey.getOrDefault(key, 0.0d);
-    int count = countPerKey.getOrDefault(key, 0);
 
-    Integer writePos = writePositionState.value();
-    if (writePos == null) {
-      writePos = 0;
-    }
-    int nextWritePos = ((writePos + 1) % size);
-    if (count < 0) {
+    if (count < 0 || writePos < 0) {
       // first time use; fill up caches:
-      count = countState.value() != null ? countState.value() : 0;
+      writePos = Optional.ofNullable(writePositionState.value()).orElse(0);
+      count = Optional.ofNullable(countState.value()).orElse(0);
 
       final int excludePos;
+      final int newCount;
       if (count == size) {
         excludePos = writePos;
+        newCount = count;
       } else {
         excludePos = -1;
+        newCount = count + 1;
+        countState.update(newCount);
       }
       for (int i = 0; i < count; ++i) {
         if (i != excludePos) {
           sum += lastN.get(i).getValue();
         }
       }
-      countPerKey.put(key, count);
+      count = newCount;
+      countCachePerKey.put(key, count);
     } else if (count != size) {
       ++count;
-      countPerKey.put(key, count);
+      countCachePerKey.put(key, count);
+      countState.update(count);
     } else {
       SimpleMeasurement measurement = lastN.get(writePos);
       sum -= measurement.getValue();
@@ -62,7 +68,9 @@ class MovingCountAverage extends RichMapFunction<SimpleMeasurement, Tuple2<Integ
 
     sum += value.getValue();
     lastN.put(writePos, value);
+    int nextWritePos = ((writePos + 1) % size);
     writePositionState.update(nextWritePos);
+    writePositionCachePerKey.put(key, nextWritePos);
     sumPerKey.put(key, sum);
 
     return Tuple2.of(key, sum / count);
