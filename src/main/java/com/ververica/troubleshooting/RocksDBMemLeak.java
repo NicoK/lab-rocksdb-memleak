@@ -29,17 +29,26 @@ public class RocksDBMemLeak {
     final int movingCount = parameters.getInt("movingCount", 5_000_000);
     final int checkpointInterval = parameters.getInt("checkpointInterval", 5_000);
 
+    /*
+    TODO:
+    - indexes in block cache (seems to be on)
+    - disable checkpoint
+    - higher memory limit (same problem, takes a bit longer to appear)
+    - try locally again (some problem with checkpoints if file size ~ 8GB)
+     */
+
     StreamExecutionEnvironment env = createConfiguredEnvironment(parameters, local);
 
     // Checkpointing Configuration
     if (checkpointInterval > 0) {
       env.enableCheckpointing(checkpointInterval);
-      env.getCheckpointConfig().setCheckpointTimeout(Time.hours(2).toMilliseconds());
-      env.getCheckpointConfig().setTolerableCheckpointFailureNumber(Integer.MAX_VALUE);
       env.getCheckpointConfig().enableExternalizedCheckpoints(
               CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
       env.getCheckpointConfig().setMinPauseBetweenCheckpoints(checkpointInterval);
     }
+    // these also apply to savepoints
+    env.getCheckpointConfig().setCheckpointTimeout(Time.hours(2).toMilliseconds());
+    env.getCheckpointConfig().setTolerableCheckpointFailureNumber(Integer.MAX_VALUE);
 
     DataStream<Tuple2<Integer, Double>> outstream =
         env.addSource(FakeSource.createSource())
