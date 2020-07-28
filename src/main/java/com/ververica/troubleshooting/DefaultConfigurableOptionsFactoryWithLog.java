@@ -1,7 +1,7 @@
 package com.ververica.troubleshooting;
 
 import org.apache.flink.configuration.ConfigOption;
-import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.contrib.streaming.state.DefaultConfigurableOptionsFactory;
 
 import org.rocksdb.DBOptions;
@@ -44,11 +44,11 @@ public class DefaultConfigurableOptionsFactoryWithLog extends DefaultConfigurabl
     }
 
     @Override
-    public DefaultConfigurableOptionsFactoryWithLog configure(Configuration configuration) {
+    public DefaultConfigurableOptionsFactoryWithLog configure(ReadableConfig configuration) {
         DefaultConfigurableOptionsFactoryWithLog optionsFactory =
                 (DefaultConfigurableOptionsFactoryWithLog) super.configure(configuration);
 
-        this.dbLogDir = configuration.getString(LOG_DIR);
+        this.dbLogDir = configuration.get(LOG_DIR);
 
         return optionsFactory;
     }
