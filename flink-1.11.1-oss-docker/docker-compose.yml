@@ -1,0 +1,50 @@
+version: "2.2"
+services:
+  jobmanager:
+    image: flink:1.11.1-scala_2.11-dev
+    mem_limit: 1G
+    memswap_limit: 0
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:8081"]
+        interval: 30s
+        timeout: 10s
+        retries: 5
+    volumes:
+      - ./chkpts:/chkpts
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        jobmanager.memory.process.size: 1000m
+        taskmanager.memory.process.size: 2000m
+        state.backend: rocksdb
+        state.backend.incremental: false
+        state.backend.rocksdb.memory.managed: true
+        taskmanager.memory.managed.fraction: 0.6
+        state.checkpoints.dir: file:///chkpts
+
+  taskmanager:
+    image: flink:1.11.1-scala_2.11-dev
+    mem_limit: 2G
+    memswap_limit: 0
+    depends_on:
+      - jobmanager
+    command: taskmanager
+    scale: 2
+    volumes:
+      - ./chkpts:/chkpts
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 1
+        jobmanager.memory.process.size: 1000m
+        taskmanager.memory.process.size: 2000m
+        state.backend: rocksdb
+        state.backend.incremental: false
+        state.backend.rocksdb.memory.managed: true
+        taskmanager.memory.managed.fraction: 0.6
+        state.checkpoints.dir: file:///chkpts

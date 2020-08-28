@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flink-jobmanager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flink
+      component: jobmanager
+  template:
+    metadata:
+      labels:
+        app: flink
+        component: jobmanager
+        deploymentId: "0000"
+      annotations:
+        prometheus.io/port: "9249"
+        prometheus.io/scrape: "true"
+    spec:
+      containers:
+      - name: jobmanager
+        image: flink:1.11.1-scala_2.11
+        args: ["jobmanager"]
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1G
+          requests:
+            cpu: "1"
+            memory: 1G
+        ports:
+        - containerPort: 6123
+          name: rpc
+        - containerPort: 6124
+          name: blob-server
+        - containerPort: 8081
+          name: webui
+        livenessProbe:
+          tcpSocket:
+            port: 6123
+          initialDelaySeconds: 30
+          periodSeconds: 60
+        volumeMounts:
+        - name: flink-config-volume
+          mountPath: /opt/flink/conf
+        - name: chkpts
+          mountPath: /chkpts
+        securityContext:
+          runAsUser: 9999  # refers to user _flink_ from official flink image, change if necessary
+      volumes:
+      - name: flink-config-volume
+        configMap:
+          name: flink-config
+          items:
+          - key: flink-conf.yaml
+            path: flink-conf.yaml
+          - key: log4j-console.properties
+            path: log4j-console.properties
+      - name: chkpts
+        emptyDir: {}
